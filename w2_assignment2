@@ -1,0 +1,30 @@
+
+/*
+postgresql version
+*/
+select 
+extract(year from session_info.ts) as year
+, extract(month from session_info.ts) as month
+, count(distinct user_info.user_id) as mau
+from raw_data.user_session_channel as user_info
+inner join raw_data.session_timestamp as session_info
+on 1=1
+and user_info.sessionid = session_info.sessionid 
+group by extract(year from session_info.ts), extract(month from session_info.ts)
+
+
+
+
+/*
+mysql version
+*/
+
+select 
+year(session_info.ts) as year
+, month(session_info.ts) as month
+, count(distinct user_info.user_id) as mau
+from raw_data.user_session_channel as user_info
+inner join raw_data.session_timestamp as session_info
+on 1=1
+and user_info.sessionid = session_info.sessionid 
+group by year(session_info.ts), month(session_info.ts)
