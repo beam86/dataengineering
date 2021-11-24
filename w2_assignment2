@@ -1,3 +1,86 @@
+/* 3주차*/
+/* 과제 2번 */
+
+with users as (
+  SELECT userid, channel
+  , row_number() over(partition by userid order by ts ) as ranking
+  , count(1) over ( partition by userid ) as cnt
+FROM raw_data.user_session_channel usc
+JOIN raw_data.session_timestamp st ON usc.sessionid = st.sessionid
+where userid is not null
+)
+
+select a.userid as "user id", a.channel as "first channel", b.channel as "last channel"
+from users as a
+inner join users as b 
+on b.userid = a.userid
+and b.userid = 251
+and b.ranking = b.cnt
+where a.ranking = 1
+
+/* 과제 3번 */
+
+select 
+user_info.userid as userid
+, sum(trns.amount) as grossRevenue
+from raw_data.session_transaction as trns
+left outer join raw_data.user_session_channel as user_info
+on user_info.sessionid = trns.sessionid
+
+group by user_info.userid
+order by grossRevenue desc
+limit 10;
+
+
+/* 과제 4번 */
+
+create table beam8686.week3_assignment 
+as select 
+coalesce(to_char(dt.ts, 'yyyy-MM'), '9999-12') as year_month
+, user_info.channel as channel
+, nullif(count( distinct user_info.userid ), 0) as uniqueUsers
+, nullif(count( distinct case when trns.sessionid is not null and user_info.sessionid is not null then user_info.userid end ), 0) as paidUsers
+, concat(round((paidUsers::float / uniqueUsers::float)*100, 2)::text, '%') as conversionRate
+, sum( trns.amount ) as grossRevenue
+, sum( case when trns.refunded = false then trns.amount else 0 end ) as netRevenue
+from raw_data.user_session_channel as user_info
+full outer join raw_data.session_timestamp as dt on user_info.sessionid = dt.sessionid
+full outer join raw_data.session_transaction as trns on user_info.sessionid = trns.sessionid and trns.amount > 0  
+group by 1, 2
+order by 1, 2;
+
+
+
+
+
+
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+
+/*
+mysql version
+*/
+
+select 
+year(session_info.ts) as year
+, month(session_info.ts) as month
+, count(distinct user_info.user_id) as mau
+from raw_data.user_session_channel as user_info
+inner join raw_data.session_timestamp as session_info
+on 1=1
+and user_info.sessionid = session_info.sessionid 
+group by year(session_info.ts), month(session_info.ts)
+
+
 
 /*
 postgresql version
@@ -15,16 +98,4 @@ group by extract(year from session_info.ts), extract(month from session_info.ts)
 
 
 
-/*
-mysql version
-*/
 
-select 
-year(session_info.ts) as year
-, month(session_info.ts) as month
-, count(distinct user_info.user_id) as mau
-from raw_data.user_session_channel as user_info
-inner join raw_data.session_timestamp as session_info
-on 1=1
-and user_info.sessionid = session_info.sessionid 
-group by year(session_info.ts), month(session_info.ts)
