@@ -1,5 +1,5 @@
-/* 3주차*/
-/* 과제 2번 */
+/* week3*/
+/* assignment 2 */
 
 with users as (
   SELECT userid, channel
@@ -18,7 +18,7 @@ and b.userid = 251
 and b.ranking = b.cnt
 where a.ranking = 1
 
-/* 과제 3번 */
+/* assignment 3 */
 
 select 
 user_info.userid as userid
@@ -32,7 +32,7 @@ order by grossRevenue desc
 limit 10;
 
 
-/* 과제 4번 */
+/* assignment 4 */
 
 create table beam8686.week3_assignment 
 as select 
@@ -48,6 +48,9 @@ full outer join raw_data.session_timestamp as dt on user_info.sessionid = dt.ses
 full outer join raw_data.session_transaction as trns on user_info.sessionid = trns.sessionid and trns.amount > 0  
 group by 1, 2
 order by 1, 2;
+
+
+
 
 
 
