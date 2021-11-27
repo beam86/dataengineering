@@ -38,14 +38,15 @@ create table beam8686.week3_assignment
 as select 
 coalesce(to_char(dt.ts, 'yyyy-MM'), '9999-12') as year_month
 , user_info.channel as channel
-, nullif(count( distinct user_info.userid ), 0) as uniqueUsers
-, nullif(count( distinct case when trns.sessionid is not null and user_info.sessionid is not null then user_info.userid end ), 0) as paidUsers
+, count( distinct user_info.userid ) as uniqueUsers
+, count( distinct case when trns.sessionid is not null and user_info.sessionid is not null then user_info.userid end ) as paidUsers
 , concat(round((paidUsers::float / uniqueUsers::float)*100, 2)::text, '%') as conversionRate
 , sum( trns.amount ) as grossRevenue
 , sum( case when trns.refunded = false then trns.amount else 0 end ) as netRevenue
 from raw_data.user_session_channel as user_info
-full outer join raw_data.session_timestamp as dt on user_info.sessionid = dt.sessionid
-full outer join raw_data.session_transaction as trns on user_info.sessionid = trns.sessionid and trns.amount > 0  
+left outer join raw_data.session_timestamp as dt on user_info.sessionid = dt.sessionid
+left outer join raw_data.session_transaction as trns on user_info.sessionid = trns.sessionid   
+where trns.amoutn > 0 
 group by 1, 2
 order by 1, 2;
 
