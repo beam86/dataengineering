@@ -1,3 +1,159 @@
+/* week5 */
+/* assignment2: Weather_Forecast DAG */
+
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime
+from  airflow.models import Variable
+from airflow.hooks.postgres_hook import PostgresHook
+
+import requests
+import logging
+import psycopg2
+import json
+from datetime import timedelta
+
+
+WeatherDag = DAG (
+    dag_id = 'Weather_Dag'
+    , start_date = datetime(2021,12,04)
+    , catchup=False
+    , tags=['my_real_first_dag']
+    , schedule_interval = "0/10 * * * *"
+)
+
+def get_Redshift_connection():
+    hook = PostgresHook(postgres_conn_id='redshift_dev_db')
+    return hook.get_conn().cursor()
+
+
+def getWeatherData(**context) :
+
+    latitude = context["params"]["latitude"]
+    longitude = context["params"]["longitude"]
+    app_key = context["params"]["app_key"]
+    f = requests.get(f"https://api.openweathermap.org/data/2.5/onecall?lat={latitude}&lon={longitude}&exclude=current,minutely,hourly,alerts&appid={app_key}&units=metric")
+    return f.json()
+
+def transformWeatherData(**context) :
+
+    ret = []
+    weathers_js = context["task_instance"].xcom_pull(key="return_value", task_ids="getWeatherData")
+    weatherObj = json.loads(json.dumps(weathers_js))
+    weatherArr = weatherObj.get("daily")
+    for weather in weatherArr :
+        lst = []
+        temp_dict = weather["temp"]
+        lst.append(temp_dict["day"])
+        lst.append(temp_dict["min"])
+        lst.append(temp_dict["max"])
+        lst.append(datetime.fromtimestamp(weather["dt"]).strftime('%Y-%m-%d'))
+        ret.append(lst)
+
+    return ret
+
+def loadWeatherData(**context) :
+
+    query_insert = ""
+    cursor = get_Redshift_connection()
+    weathers = context["task_instance"].xcom_pull(key="return_value", task_ids="transformWeatherData")
+    for weather in weathers :
+        date = weather[3]
+        temp = weather[0]
+        min_temp = weather[1]
+        max_temp = weather[2]
+        query_insert += f"insert into beam8686.temp_weather_information values('{date}', '{temp}', '{min_temp}', '{max_temp}');"
+      
+    try :
+        cursor.execute("create table beam8686.temp_weather_information (date date, temp float, min_temp float, max_temp float, created_date timestamp default sysdate);")
+	cursor.execute("insert into beam8686.temp_weather_information select * from beam8686.weather_information;")
+        cursor.execute(query_insert)
+        cursor.execute("delete from beam8686.weather_information;")
+        cursor.execute("insert into beam8686.weather_information select date, temp, min_temp, max_temp, created_date from (select *, row_number() over (partition by date order by created-date) seq from beam8686.temp_weather_information) where seq = 1;")
+        cursor.execute("drop table beam8686.temp_weather_information;")
+        cursor.execute("commit;")
+    except (Exception, psycopg2.DatabaseError) as error:
+        print(error)
+        cursor.execute("rollback;")
+
+getWeatherData = PythonOperator (
+    task_id = 'getWeatherData'
+    , python_callable = getWeatherData
+    , params = {
+	  'url_format': Variable.get('url')
+	  , 'latitude': Variable.get('latitude_seoul')
+	  , 'longitude': Variable.get('longitude_seoul')
+	  , 'app_key': Variable.get('open_weather_api_key')
+    }
+    , provide_context=True
+    , dag = WeatherDag
+)
+
+transformWeatherData = PythonOperator (
+    task_id = 'transformWeatherData'
+    , python_callable = transformWeatherData
+    , provide_context=True
+    , dag = WeatherDag
+)
+
+loadWeatherData = PythonOperator (
+    task_id = 'loadWeatherData'
+    , python_callable = loadWeatherData
+    , provide_context=True
+    , dag = WeatherDag
+)
+
+
+
+#Assign the order of the tasks in our DAG
+getWeatherData >> transformWeatherData >> loadWeatherData
+
+
+
+/* assignment3: Quiz */
+
+1. airflow.cfg
+2. default_ui_timezone
+3. auth_backend
+
+5. 
+sudo systemctl daemon-reload
+sudo systemctl enable airflow-webserver
+sudo systemctl enable airflow-scheduler
+
+sudo systemctl start airflow-webserver
+sudo systemctl start airflow-scheduler
+
+
+-- for automatically setting --
+airflow@ip-172-31-54-137:~$ vi ~/.bashrc 
+AIRFLOW_HOME=/var/lib/airflow
+export AIRFLOW_HOME
+cd ~/
+
+
+
+
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+/*---------------------------------------------------------------------*/
+
+
+
+
+
+
+
+
+
 /* week4 */
 /* assignment1 */
 
